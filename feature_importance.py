@@ -8,19 +8,26 @@ from sklearn.inspection import permutation_importance
 import matplotlib.pyplot as plt
 
 # Load dataset
-grade = 'Grade 7' 
+grade = 'Grade 11' 
 data = pd.read_csv(f'new_data/{grade}.csv')
 moderate_threshold = 40
 high_threshold = 70
+
+phq_moderate = 10.0
+phq_severe = 20.0
+
+gad_moderate = 10.0
+gad_severe = 15.0
+
 mode = {
     0: 'Depression T Score',
     1: 'Anxiety T Score',
     2: 'PHQ-9 Total',
-    3: 'GAD-7 Total ',
+    3: 'GAD-7 Total',
     4: 'Total T Score'
 }
 
-score = mode[1]
+score = mode[2] 
 
 
 # Encode categorical variables 
@@ -28,7 +35,7 @@ le = LabelEncoder()
 
 
 X = data[['Unweighted GPA', 'Endorse Q9', 'Absence', 'Tardy', 'Dismissal', 'Gender', 'Race / Ethnicity', 'ELL', 'SPED', '504']]
-data['target_column'] = pd.cut(data[score], bins=[0, moderate_threshold, high_threshold, float('inf')],
+data['target_column'] = pd.cut(data[score], bins=[0, phq_moderate, phq_severe, float('inf')],
                                labels=['Low', 'Moderate', 'High'], right=False)
 
 Y = data['target_column']
@@ -43,9 +50,7 @@ X = pd.get_dummies(X, columns=['ELL'], prefix=['ELL'])
 
 X = pd.get_dummies(X, columns=['504'], prefix=['504'])
 
-data['target_column'] = pd.cut(data[score], bins=[0, moderate_threshold, high_threshold, float('inf')],
-                               labels=['Low', 'Moderate', 'High'], right=False)
-Y = data['target_column']
+
 
 
 def random_forest_fp():

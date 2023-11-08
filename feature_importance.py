@@ -8,17 +8,19 @@ from sklearn.inspection import permutation_importance
 import matplotlib.pyplot as plt
 
 # Load dataset
-grade = 'Grade 8' 
+grade = 'Grade 7' 
 data = pd.read_csv(f'new_data/{grade}.csv')
 moderate_threshold = 40
 high_threshold = 70
 mode = {
     0: 'Depression T Score',
     1: 'Anxiety T Score',
-    2: 'Total T Score'
+    2: 'PHQ-9 Total',
+    3: 'GAD-7 Total ',
+    4: 'Total T Score'
 }
 
-score = mode[2]
+score = mode[1]
 
 
 # Encode categorical variables 
@@ -55,13 +57,13 @@ def random_forest_fp():
 
     feature_importance_df = pd.DataFrame({'Feature': X.columns, 'Importance': feature_importances})
 
-    feature_importance_df = feature_importance_df.sort_values(by='Importance', ascending=False)
+    feature_importance_df = feature_importance_df.sort_values(by='Importance', ascending=False).head(5)
 
     plt.figure(figsize=(12, 6))
     plt.bar(feature_importance_df['Feature'], feature_importance_df['Importance'])
     plt.xlabel('Feature')
     plt.ylabel('Feature Importance')
-    plt.title(f'Random Forest Feature Importance for {grade}')
+    plt.title(f'Random Forest Top 5 Feature Importance In {grade} For {score}')
 
     # Display the chart
     plt.tight_layout()

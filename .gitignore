@@ -1,0 +1,9 @@
+anova_result_0.csv
+anova_result_1.csv
+anova_result_2.csv
+backup/
+data/
+formatted_p_values.csv
+new_data/
+results/
+__pycache__/

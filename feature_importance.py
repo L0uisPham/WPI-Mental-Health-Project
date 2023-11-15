@@ -6,9 +6,16 @@ from sklearn.metrics import accuracy_score, classification_report, confusion_mat
 import numpy as np
 from sklearn.inspection import permutation_importance
 import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.model_selection import StratifiedKFold, cross_validate
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import make_scorer, accuracy_score, f1_score
+import matplotlib.pyplot as plt
 
 # Load dataset
-grade = 'Grade 11' 
+grade = 'Grade 7' 
 data = pd.read_csv(f'new_data/{grade}.csv')
 moderate_threshold = 40
 high_threshold = 70
@@ -26,13 +33,13 @@ mode = {
     3: 'GAD-7 Total',
     4: 'Total T Score'
 }
+target = mode[0]
 
 score = mode[2] 
 
 
 # Encode categorical variables 
 le = LabelEncoder()
-
 
 X = data[['Unweighted GPA', 'Endorse Q9', 'Absence', 'Tardy', 'Dismissal', 'Gender', 'Race / Ethnicity', 'ELL', 'SPED', '504']]
 data['target_column'] = pd.cut(data[score], bins=[0, phq_moderate, phq_severe, float('inf')],
@@ -49,8 +56,6 @@ X = pd.get_dummies(X, columns=['SPED'], prefix=['SPED'])
 X = pd.get_dummies(X, columns=['ELL'], prefix=['ELL'])
 
 X = pd.get_dummies(X, columns=['504'], prefix=['504'])
-
-
 
 
 def random_forest_fp():
@@ -167,6 +172,92 @@ def permutation():
     plt.title(f'Feature Importances for {score}')
     plt.show()
 
+def feature_contribution_stratified_by_gender_race():
+    features = ['Gender', 'Race / Ethnicity', 'ELL', 'SPED', '504', 
+            'Unweighted GPA', 'Avg Level', 'Absence', 'Tardy', 'Dismissal', 'Endorse Q9', 'GAD-7 Total']
+    features = ['Gender', 'Race / Ethnicity', 'ELL', 'SPED', '504', 
+            'Unweighted GPA', 'Absence', 'Tardy', 'Dismissal', 'Endorse Q9']
+
+    encoder = OneHotEncoder(sparse=False)
+    encoded_features = encoder.fit_transform(data[features].select_dtypes(include=['object']))
+    encoded_feature_names = encoder.get_feature_names_out()
+
+    numerical_features = data[features].select_dtypes(include=['int64', 'float64'])
+    encoded_df = pd.concat([pd.DataFrame(encoded_features, columns=encoded_feature_names),
+                            numerical_features.reset_index(drop=True)], axis=1)
+
+    gender_groups = data['Gender'].unique()
+    race_groups = data['Race / Ethnicity'].value_counts()
+    race_groups = race_groups[race_groups > 10].index
+    combined_groups = data.groupby(['Gender', 'Race / Ethnicity']).size()
+    combined_groups = combined_groups[combined_groups > 10].index 
+
+
+    rfc = RandomForestClassifier(random_state=42)
+
+    stratified_kfold = StratifiedKFold(n_splits=2)
+
+    scoring_metrics = {'accuracy': make_scorer(accuracy_score), 'f1': make_scorer(f1_score, average='weighted')}
+
+    def compute_scores(mask, data, encoded_df, target):
+        X_group = encoded_df[mask]
+        y_group = data.loc[mask, target]
+        scores = cross_validate(rfc, X_group, y_group, cv=stratified_kfold, scoring=scoring_metrics)
+        return np.mean(scores['test_accuracy']), np.mean(scores['test_f1'])
+
+    scores_gender = {g: compute_scores(data['Gender'] == g, data, encoded_df, target) for g in gender_groups}
+
+    scores_race = {r: compute_scores(data['Race / Ethnicity'] == r, data, encoded_df, target) for r in race_groups}
+
+    scores_combined = {}
+    for (gender, race) in combined_groups:
+        gender_mask = data['Gender'] == gender
+        race_mask = data['Race / Ethnicity'] == race
+        combined_mask = gender_mask & race_mask
+        combined_key = f"{gender}_{race}"
+        scores_combined[combined_key] = compute_scores(combined_mask, data, encoded_df, target)
+
+
+
+
+    scores_gender = {g: compute_scores(data['Gender'] == g, data, encoded_df, target) for g in gender_groups}
+    scores_race = {r: compute_scores(data['Race / Ethnicity'] == r, data, encoded_df, target) for r in race_groups}
+    scores_combined = {f"{g}_{r}": compute_scores((data['Gender'] == g) & (data['Race / Ethnicity'] == r), data, encoded_df, target) 
+                    for g, r in combined_groups}
+
+    all_scores = {**scores_gender, **scores_race, **scores_combined}
+
+    sorted_subgroups = sorted(all_scores.keys(), key=lambda x: (0 if x in gender_groups else 1 if x in race_groups else 2, x))
+
+    sorted_accuracy_scores = [all_scores[sg][0] for sg in sorted_subgroups]
+    sorted_f1_scores = [all_scores[sg][1] for sg in sorted_subgroups]
+
+    x = np.arange(len(sorted_subgroups))  
+    width = 0.35  
+
+    fig, ax = plt.subplots(figsize=(15, 8))
+    rects1 = ax.bar(x - width/2, sorted_accuracy_scores, width, label='Accuracy')
+    rects2 = ax.bar(x + width/2, sorted_f1_scores, width, label='F1 Score')
+
+    ax.set_ylabel('Scores')
+    
+    ax.set_title(f'Performance of RFC predictions of {target} in Groups for {grade}')
+    ax.set_xticks(x)
+    ax.set_xticklabels(sorted_subgroups, rotation=45, ha='right')
+    ax.legend()
+
+    def autolabel(rects):
+        for rect in rects:
+            height = rect.get_height()
+            ax.annotate(f'{height:.2f}', xy=(rect.get_x() + rect.get_width() / 2, height),
+                        xytext=(0, 3),  # 3 points vertical offset
+                        textcoords="offset points", ha='center', va='bottom')
+
+    autolabel(rects1)
+    autolabel(rects2)
+
+    fig.tight_layout()
+    plt.show()
 
 if __name__ == '__main__':
-    random_forest_fp()
+    feature_contribution_stratified_by_gender_race()

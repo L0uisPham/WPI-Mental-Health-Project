@@ -99,9 +99,9 @@ def run_ANOVA_grade_9_11(file_path):
     # Return the ANOVA tables if needed for further processing or exporting
     return anova_tables
 
-file_path = 'new_data/Grade 7.csv'  
+file_path = 'new_data/Grade 11.csv'  
 
-anova_results = run_ANOVA_grade_7_8(file_path)
+anova_results = run_ANOVA_grade_9_11(file_path)
 print(anova_results)
 for i, table in enumerate(anova_results):
     table.to_csv(f'anova_result_{i}.csv', index=False)
